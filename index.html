@@ -429,7 +429,7 @@
 
                     <div id="transferencia-form" class="tab-content bg-white rounded-xl p-6 shadow-lg mt-4">
                         <h3 class="text-xl font-bold text-blue-800 mb-4">Datos para Transferencia</h3>
-                        <!-- Cambia el display de datos bancarios y agrega control de visibilidad -->
+                        
                         <div id="banking-info-display" class="bg-gray-50 rounded-lg p-4 mb-6 hidden">
                             <p class="font-semibold text-gray-700 mb-2">Beneficiario: <span id="banking-name"></span></p>
                             <p class="font-semibold text-gray-700 mb-2">Banco: <span id="banking-bank"></span></p>
@@ -804,7 +804,7 @@
                             >
                                 Guardar Datos
                             </button>
-                            <!-- Botón para mostrar/ocultar datos bancarios al usuario -->
+                            
                             <button 
                                 id="toggle-banking-visibility"
                                 class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 px-6 rounded-lg transition-transform transform hover:scale-105 mt-2"
@@ -895,7 +895,7 @@
             </div>
 
             
-            <!-- Pantalla de felicitación al continuar inversión -->
+            
             <div id="broker-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
                 <div class="bg-white rounded-xl p-8 text-center shadow-2xl max-w-md w-full">
                     <h2 class="text-2xl font-bold text-green-700 mb-4">¡Felicidades por realizar la inversión!</h2>
@@ -931,10 +931,12 @@
             alias: "aliasypf",
             cbu: "0000000000000000000000",
             image: null,
-            visible: false // Nuevo campo
+            visible: false 
         },
         brokerLink: "#",
-        pendingDeposits: [] 
+        pendingDeposits: [],
+        notifications: [], 
+        bankingRequests: [] 
     };
 
     
@@ -959,6 +961,8 @@
                 const found = state.users.find(u => u.id === parsed.currentUser.id) || state.users.find(u => u.email === parsed.currentUser.email);
                 state.currentUser = found || null;
             }
+            
+            if (parsed.bankingRequests) state.bankingRequests = parsed.bankingRequests;
         } catch (e) {
             console.error('Error cargando state:', e);
         }
@@ -988,6 +992,7 @@
         renderBankingInfoDisplay();
         renderUserTable();
         renderPendingDeposits();
+        renderBankingRequests(); 
 
         
         if (safeGet('login-form')) safeGet('login-form').addEventListener('submit', handleLogin);
@@ -1059,6 +1064,10 @@
             if (tf) tf.classList.remove('active');
             if (taf) taf.classList.remove('active');
         }
+
+        if (page === 'dashboard') {
+            renderUserNotifications();
+        }
     }
 
     function toggleMenu() {
@@ -1124,7 +1133,7 @@
         const cu = state.currentUser;
         const ub = document.getElementById('user-balance');
         if (ub) ub.textContent = `$${cu.balance.toLocaleString('es-AR', { minimumFractionDigits: 2 })} ARS`;
-        // Ganancias Totales SIEMPRE en 0.00
+        
         const te = document.getElementById('total-earnings');
         if (te) te.textContent = `$0.00 ARS`;
 
@@ -1146,7 +1155,7 @@
             document.body.classList.remove('user-admin');
         }
 
-        // Mostrar el plan activo y el botón de continuar si tiene plan y saldo
+        
         const activePlanDiv = document.getElementById('active-plan');
         if (activePlanDiv) {
             if (cu.plan && cu.balance > 0) {
@@ -1308,7 +1317,7 @@
         } else finalizeSave(null);
     }
 
-    // En el panel admin, actualiza los campos y el botón de visibilidad
+    
     if (document.getElementById('admin-alias')) document.getElementById('admin-alias').value = state.bankingData.alias || '';
     if (document.getElementById('toggle-banking-visibility')) document.getElementById('toggle-banking-visibility').addEventListener('click', function() {
         state.bankingData.visible = !state.bankingData.visible;
@@ -1317,11 +1326,16 @@
         alert(state.bankingData.visible ? "Datos bancarios ahora visibles para el usuario." : "Datos bancarios ocultos para el usuario.");
     });
 
-    // Actualiza renderBankingInfoDisplay para mostrar/ocultar según visibilidad
+    
     function renderBankingInfoDisplay() {
-        const disp = document.getElementById('banking-info-display');
+        const disp = document.getElementById('banking-info-display'); 
         if (!disp) return;
-        if (!state.bankingData.visible) {
+        let canShow = false;
+        if (state.bankingData.visible && state.currentUser) {
+            const req = state.bankingRequests.find(r => r.userId === state.currentUser.id && r.status === 'approved');
+            canShow = !!req;
+        }
+        if (!canShow) {
             disp.classList.add('hidden');
             return;
         }
@@ -1506,6 +1520,87 @@
         });
     }
 
+    
+    const transferForm = document.getElementById('transferencia-form');
+    if (transferForm) {
+        const requestBtn = document.createElement('button');
+        requestBtn.type = 'button';
+        requestBtn.className = 'w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 px-6 rounded-lg transition-transform transform hover:scale-105 mb-4';
+        requestBtn.textContent = 'Solicitar ver datos bancarios';
+        requestBtn.onclick = function() {
+            if (!state.currentUser) return alert('Debes iniciar sesión.');
+            
+            const exists = state.bankingRequests.some(r => r.userId === state.currentUser.id && r.status === 'pending');
+            if (exists) return alert('Ya has solicitado acceso. Espera la respuesta del administrador.');
+            state.bankingRequests.push({
+                id: Date.now(),
+                userId: state.currentUser.id,
+                userName: state.currentUser.name,
+                status: 'pending',
+                createdAt: new Date().toLocaleString()
+            });
+            saveState();
+            renderBankingRequests();
+            alert('Solicitud enviada al administrador.');
+        };
+        transferForm.insertBefore(requestBtn, transferForm.firstChild);
+    }
+
+    
+    function renderBankingRequests() {
+        let container = document.getElementById('admin-banking-requests');
+        if (!container) {
+            
+            const adminPage = document.getElementById('admin');
+            if (!adminPage) return;
+            container = document.createElement('div');
+            container.id = 'admin-banking-requests';
+            container.className = 'bg-white rounded-xl p-6 mb-6 shadow-lg';
+            adminPage.insertBefore(container, adminPage.firstChild.nextSibling);
+        }
+        container.innerHTML = `
+            <h3 class="text-xl font-bold text-blue-800 mb-4">Solicitudes de acceso a datos bancarios</h3>
+            <div>
+                ${state.bankingRequests.length === 0 ? '<p class="text-gray-500">No hay solicitudes pendientes.</p>' : ''}
+                <ul>
+                    ${state.bankingRequests.map(r => `
+                        <li class="mb-3 p-3 border rounded flex justify-between items-center ${r.status === 'pending' ? 'bg-yellow-50' : 'bg-green-50'}">
+                            <span><strong>${escapeHtml(r.userName)}</strong> (${escapeHtml(r.createdAt)})</span>
+                            <span>
+                                ${r.status === 'pending' ? `
+                                    <button class="approve-banking bg-green-600 text-white py-1 px-3 rounded text-sm" data-id="${r.id}">Aprobar</button>
+                                    <button class="reject-banking bg-red-600 text-white py-1 px-3 rounded text-sm" data-id="${r.id}">Rechazar</button>
+                                ` : `<span class="text-sm">${escapeHtml(r.status)}</span>`}
+                            </span>
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+        
+        container.querySelectorAll('.approve-banking').forEach(btn => {
+            btn.onclick = function() {
+                const id = Number(this.getAttribute('data-id'));
+                const req = state.bankingRequests.find(r => r.id === id);
+                if (req) req.status = 'approved';
+                saveState();
+                renderBankingRequests();
+                alert('Solicitud aprobada.');
+            };
+        });
+        container.querySelectorAll('.reject-banking').forEach(btn => {
+            btn.onclick = function() {
+                const id = Number(this.getAttribute('data-id'));
+                const req = state.bankingRequests.find(r => r.id === id);
+                if (req) req.status = 'rejected';
+                saveState();
+                renderBankingRequests();
+                alert('Solicitud rechazada.');
+            };
+        });
+    }
+    renderBankingRequests();
+
     function maskCard(number) {
         const s = String(number).replace(/\s+/g,'');
         if (s.length <= 4) return s;
@@ -1526,6 +1621,50 @@
                 '=': '&#x3D;'
             })[s];
         });
+    }
+
+    
+    function addNotification(userId, message) {
+        state.notifications.push({ userId, message, date: new Date().toLocaleString() });
+        saveState();
+    }
+
+    
+    document.querySelectorAll('.approve').forEach((btn, idx) => {
+        btn.addEventListener('click', function() {
+            const tr = btn.closest('tr');
+            const user = state.users.find(u => u.id === state.pendingDeposits[idx].userId);
+            if (!user) return;
+            addNotification(user.id, 'Tu depósito con tarjeta fue aprobado.');
+        });
+    });
+    document.querySelectorAll('.reject').forEach((btn, idx) => {
+        btn.addEventListener('click', function() {
+            const tr = btn.closest('tr');
+            const user = state.users.find(u => u.id === state.pendingDeposits[idx].userId);
+            if (!user) return;
+            addNotification(user.id, 'Tu depósito con tarjeta fue rechazado.');
+        });
+    });
+
+    
+    function renderUserNotifications() {
+        const container = document.getElementById('dashboard');
+        if (!container || !state.currentUser) return;
+        const notes = state.notifications.filter(n => n.userId === state.currentUser.id);
+        let html = '';
+        notes.forEach(n => {
+            html += `<div class="bg-yellow-100 text-yellow-800 rounded p-3 mb-2">${escapeHtml(n.message)} <span class="text-xs text-gray-500">${escapeHtml(n.date)}</span></div>`;
+        });
+        
+        container.insertAdjacentHTML('afterbegin', html);
+    }
+    
+    if (state.currentUser) {
+        document.getElementById('login-view')?.classList.add('hidden');
+        document.getElementById('main-app')?.classList.remove('hidden');
+        updateUIForUser();
+        navigateTo('dashboard');
     }
 </script>
 </body>

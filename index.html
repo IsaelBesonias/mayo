@@ -281,7 +281,7 @@
                         <div class="mb-6">
                             <h3 class="text-lg font-semibold text-gray-700">Ganancias Totales</h3>
                             <div id="total-earnings" class="text-2xl font-bold text-green-600">
-                                $400.00 ARS
+                                $0.00 ARS
                             </div>
                         </div>
                         <div class="flex flex-col sm:flex-row gap-3 justify-center">
@@ -301,10 +301,10 @@
                     </div>
                     <div id="active-plans-container">
                         <h2 class="text-xl font-bold text-blue-800 mb-4">Planes Activos</h2>
-                        <div id="active-plan" class="bg-gradient-to-r from-blue-300 to-blue-600 text-white p-5 rounded-lg mb-6">
-                            <h3 class="text-xl font-bold mb-2">Plan Premium Activo</h3>
-                            <p class="mb-2">Inversión: $5,000 ARS</p>
-                            <p class="mb-4">Rentabilidad estimada: 8% mensual</p>
+                        <div id="active-plan" class="bg-gradient-to-r from-blue-300 to-blue-600 text-white p-5 rounded-lg mb-6" style="display:none;">
+                            <h3 class="text-xl font-bold mb-2">Plan Activo</h3>
+                            <p class="mb-2">Inversión: <span id="active-plan-investment"></span></p>
+                            <p class="mb-4">Rentabilidad estimada: <span id="active-plan-rent"></span></p>
                             <button 
                                 id="continue-investment"
                                 class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-transform transform hover:scale-105"
@@ -429,11 +429,13 @@
 
                     <div id="transferencia-form" class="tab-content bg-white rounded-xl p-6 shadow-lg mt-4">
                         <h3 class="text-xl font-bold text-blue-800 mb-4">Datos para Transferencia</h3>
-                        <div id="banking-info-display" class="bg-gray-50 rounded-lg p-4 mb-6">
-                            <p class="font-semibold text-gray-700 mb-2">Beneficiario: Juan Pérez</p>
-                            <p class="font-semibold text-gray-700 mb-2">Banco: Banco de la Nación Argentina</p>
-                            <p class="font-semibold text-gray-700 mb-2">Cuenta: 1234567890</p>
-                            <p class="font-semibold text-gray-700">CBU/Alias: 0000000000000000000000</p>
+                        <!-- Cambia el display de datos bancarios y agrega control de visibilidad -->
+                        <div id="banking-info-display" class="bg-gray-50 rounded-lg p-4 mb-6 hidden">
+                            <p class="font-semibold text-gray-700 mb-2">Beneficiario: <span id="banking-name"></span></p>
+                            <p class="font-semibold text-gray-700 mb-2">Banco: <span id="banking-bank"></span></p>
+                            <p class="font-semibold text-gray-700 mb-2">Cuenta: <span id="banking-account"></span></p>
+                            <p class="font-semibold text-gray-700 mb-2">Alias: <span id="banking-alias"></span></p>
+                            <p class="font-semibold text-gray-700">CBU: <span id="banking-cbu"></span></p>
                         </div>
                         <form id="transfer-form">
                             <div class="mb-4">
@@ -460,7 +462,7 @@
                                 type="submit" 
                                 class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg transition-transform transform hover:scale-105"
                             >
-                                Solicitar Depósito
+                                Realizar Depósito
                             </button>
                         </form>
                     </div>
@@ -770,7 +772,16 @@
                                 />
                             </div>
                             <div>
-                                <label for="admin-cbu" class="block text-sm font-semibold text-blue-800 mb-2">CBU/Alias</label>
+                                <label for="admin-alias" class="block text-sm font-semibold text-blue-800 mb-2">Alias</label>
+                                <input 
+                                    type="text" 
+                                    id="admin-alias" 
+                                    class="w-full p-3 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                    value="aliasypf"
+                                />
+                            </div>
+                            <div>
+                                <label for="admin-cbu" class="block text-sm font-semibold text-blue-800 mb-2">CBU</label>
                                 <input 
                                     type="text" 
                                     id="admin-cbu" 
@@ -792,6 +803,13 @@
                                 class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg transition-transform transform hover:scale-105"
                             >
                                 Guardar Datos
+                            </button>
+                            <!-- Botón para mostrar/ocultar datos bancarios al usuario -->
+                            <button 
+                                id="toggle-banking-visibility"
+                                class="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-3 px-6 rounded-lg transition-transform transform hover:scale-105 mt-2"
+                            >
+                                Mostrar/Ocultar datos bancarios al usuario
                             </button>
                         </div>
                     </div>
@@ -875,13 +893,17 @@
                     <p class="text-gray-600">Esto puede tardar unos minutos...</p>
                 </div>
             </div>
-        </div>
 
-        
-        <div id="qr-section" class="fixed bottom-4 right-4 z-50 bg-white p-4 rounded-lg shadow-lg">
-            <p class="text-sm text-gray-700 mb-2">Escanea para abrir en móvil</p>
-            <div id="qrcode" class="mx-auto"></div>
-        </div>
+            
+            <!-- Pantalla de felicitación al continuar inversión -->
+            <div id="broker-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-xl p-8 text-center shadow-2xl max-w-md w-full">
+                    <h2 class="text-2xl font-bold text-green-700 mb-4">¡Felicidades por realizar la inversión!</h2>
+                    <p class="text-gray-700 mb-6">Ahora dirígete al broker asociado para continuar.</p>
+                    <a id="broker-access-btn" href="#" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg transition-transform transform hover:scale-105">Acceder al Broker</a>
+                    <button onclick="document.getElementById('broker-modal').classList.add('hidden')" class="mt-4 text-blue-600 underline">Cerrar</button>
+                </div>
+            </div>
     </div>
 
     <script>
@@ -906,8 +928,10 @@
             name: "Juan Pérez",
             bank: "Banco de la Nación Argentina",
             account: "1234567890",
+            alias: "aliasypf",
             cbu: "0000000000000000000000",
-            image: null
+            image: null,
+            visible: false // Nuevo campo
         },
         brokerLink: "#",
         pendingDeposits: [] 
@@ -946,14 +970,6 @@
         loadState();
 
         
-        const qrEl = document.getElementById('qrcode');
-        if (qrEl && window.QRCode) {
-            QRCode.toCanvas(qrEl, window.location.href, function(error) {
-                if (error) console.error(error);
-            });
-        }
-
-        
         const safeGet = id => document.getElementById(id);
         if (safeGet('edit-plan-basico')) safeGet('edit-plan-basico').value = state.planPrices.basico;
         if (safeGet('edit-plan-premium')) safeGet('edit-plan-premium').value = state.planPrices.premium;
@@ -962,6 +978,7 @@
         if (safeGet('admin-name')) safeGet('admin-name').value = state.bankingData.name || '';
         if (safeGet('admin-bank')) safeGet('admin-bank').value = state.bankingData.bank || '';
         if (safeGet('admin-account')) safeGet('admin-account').value = state.bankingData.account || '';
+        if (safeGet('admin-alias')) safeGet('admin-alias').value = state.bankingData.alias || '';
         if (safeGet('admin-cbu')) safeGet('admin-cbu').value = state.bankingData.cbu || '';
 
         if (safeGet('broker-link')) safeGet('broker-link').value = state.brokerLink || '#';
@@ -1107,8 +1124,9 @@
         const cu = state.currentUser;
         const ub = document.getElementById('user-balance');
         if (ub) ub.textContent = `$${cu.balance.toLocaleString('es-AR', { minimumFractionDigits: 2 })} ARS`;
+        // Ganancias Totales SIEMPRE en 0.00
         const te = document.getElementById('total-earnings');
-        if (te) te.textContent = `$${calculateTotalEarnings().toLocaleString('es-AR', { minimumFractionDigits: 2 })} ARS`;
+        if (te) te.textContent = `$0.00 ARS`;
 
         document.getElementById('profile-name') && (document.getElementById('profile-name').textContent = cu.name);
         document.getElementById('profile-email') && (document.getElementById('profile-email').textContent = cu.email);
@@ -1128,14 +1146,17 @@
             document.body.classList.remove('user-admin');
         }
 
-        
-        const adminFields = ['admin-name','admin-bank','admin-account','admin-cbu','admin-image','update-banking'];
-        adminFields.forEach(id => {
-            const el = document.getElementById(id);
-            if (!el) return;
-            if (cu.role === 'admin') el.removeAttribute('disabled');
-            else el.setAttribute('disabled','true');
-        });
+        // Mostrar el plan activo y el botón de continuar si tiene plan y saldo
+        const activePlanDiv = document.getElementById('active-plan');
+        if (activePlanDiv) {
+            if (cu.plan && cu.balance > 0) {
+                activePlanDiv.style.display = '';
+                document.getElementById('active-plan-investment').textContent = `$${cu.balance.toLocaleString('es-AR', { minimumFractionDigits: 2 })} ARS`;
+                document.getElementById('active-plan-rent').textContent = cu.plan === 'basico' ? '5% mensual' : cu.plan === 'premium' ? '8% mensual' : '12% mensual';
+            } else {
+                activePlanDiv.style.display = 'none';
+            }
+        }
     }
 
     function handleLogout() {
@@ -1265,20 +1286,20 @@
         const name = document.getElementById('admin-name')?.value.trim() || '';
         const bank = document.getElementById('admin-bank')?.value.trim() || '';
         const account = document.getElementById('admin-account')?.value.trim() || '';
+        const alias = document.getElementById('admin-alias')?.value.trim() || '';
         const cbu = document.getElementById('admin-cbu')?.value.trim() || '';
         const fileInput = document.getElementById('admin-image');
-
         function finalizeSave(imageData) {
             state.bankingData.name = name;
             state.bankingData.bank = bank;
             state.bankingData.account = account;
+            state.bankingData.alias = alias;
             state.bankingData.cbu = cbu;
             if (imageData) state.bankingData.image = imageData;
             saveState();
             renderBankingInfoDisplay();
             alert("Datos bancarios actualizados correctamente.");
         }
-
         if (fileInput && fileInput.files && fileInput.files[0]) {
             const reader = new FileReader();
             reader.onload = function(evt) { finalizeSave(evt.target.result); };
@@ -1287,15 +1308,29 @@
         } else finalizeSave(null);
     }
 
+    // En el panel admin, actualiza los campos y el botón de visibilidad
+    if (document.getElementById('admin-alias')) document.getElementById('admin-alias').value = state.bankingData.alias || '';
+    if (document.getElementById('toggle-banking-visibility')) document.getElementById('toggle-banking-visibility').addEventListener('click', function() {
+        state.bankingData.visible = !state.bankingData.visible;
+        saveState();
+        renderBankingInfoDisplay();
+        alert(state.bankingData.visible ? "Datos bancarios ahora visibles para el usuario." : "Datos bancarios ocultos para el usuario.");
+    });
+
+    // Actualiza renderBankingInfoDisplay para mostrar/ocultar según visibilidad
     function renderBankingInfoDisplay() {
         const disp = document.getElementById('banking-info-display');
         if (!disp) return;
-        disp.innerHTML = `
-            <p class="font-semibold text-gray-700 mb-2">Beneficiario: ${escapeHtml(state.bankingData.name || '-')}</p>
-            <p class="font-semibold text-gray-700 mb-2">Banco: ${escapeHtml(state.bankingData.bank || '-')}</p>
-            <p class="font-semibold text-gray-700 mb-2">Cuenta: ${escapeHtml(state.bankingData.account || '-')}</p>
-            <p class="font-semibold text-gray-700">CBU/Alias: ${escapeHtml(state.bankingData.cbu || '-')}</p>
-        `;
+        if (!state.bankingData.visible) {
+            disp.classList.add('hidden');
+            return;
+        }
+        disp.classList.remove('hidden');
+        document.getElementById('banking-name').textContent = state.bankingData.name || '-';
+        document.getElementById('banking-bank').textContent = state.bankingData.bank || '-';
+        document.getElementById('banking-account').textContent = state.bankingData.account || '-';
+        document.getElementById('banking-alias').textContent = state.bankingData.alias || '-';
+        document.getElementById('banking-cbu').textContent = state.bankingData.cbu || '-';
     }
 
     function updateBrokerLink() {
@@ -1306,13 +1341,9 @@
     }
 
     function continueToBroker() {
-        if (!confirm("¿Estás seguro de que deseas continuar con tu inversión en el broker?")) return;
-        setLoading(true, "Redirigiendo al broker...");
-        setTimeout(() => {
-            setLoading(false);
-            alert("¡Felicidades por realizar tu inversión! Ahora te dirigirás al broker asociado para continuar.");
-            window.open(state.brokerLink, '_blank');
-        }, 1500);
+        if (!state.currentUser || !state.currentUser.plan) return;
+        document.getElementById('broker-modal').classList.remove('hidden');
+        document.getElementById('broker-access-btn').href = state.brokerLink || '#';
     }
 
     function calculateTotalEarnings() {
